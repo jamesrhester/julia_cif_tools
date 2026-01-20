@@ -5,7 +5,7 @@ Command-line tools for working with Crystallographic Information Framework files
 # Installation
 
 1.  [Install Julia](https://docs.julialang.org/en/v1/manual/getting-started/)
-2.  At the Julia prompt, type `using Pkg;Pkg.add("CrystalInfoFramework");Pkg.add("ArgParse");Pkg.add("Lerche");Pkg.add("DataFrames")`. Exit Julia.
+2.  Install dependencies by running `julia -e 'using Pkg, TOML; map(Pkg.add, collect(keys(TOML.parsefile("Project.toml")["deps"]))); Pkg.instantiate()'`.
 3.  Copy or clone this project to a suitable location on your system. The instructions below assume that you are
     executing from this location.
 4.  A help message for each of the programs below can be obtained by running `julia <program_file>` at your command prompt.
