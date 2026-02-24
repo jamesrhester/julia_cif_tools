@@ -527,8 +527,11 @@ check_delimiter(value) = begin
     end
     best_delimiter,rule_no = which_delimiter(test_val)
     if best_delimiter != quotechar
-        printval = value[1:min(length(value),prevind(value,20))]
-        if length(printval) > 20 printval = printval*"..." end
+        @debug "Found bad quotes" test_val best_delimiter
+        printval = test_val
+        if length(printval) > 20
+            printval = value[1:prevind(value,20)]*"..."
+        end
         print_err(value.line,"Incorrect delimiters for $(printval): should be `$best_delimiter`",err_code=rule_no)
     end
 end
