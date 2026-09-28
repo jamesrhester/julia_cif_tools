@@ -1,7 +1,9 @@
 # A Linter for DDLm dictionaries
 using CrystalInfoFramework, Printf, ArgParse
+using URIs      #for imports
+using Downloads #for imports
 
-using Lerche   #for our transformer
+using Lerche    #for our transformer
 
 const err_record = Dict{String,Int}()
 

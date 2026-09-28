@@ -21,6 +21,7 @@ mutable struct OrderCheck <: Visitor_Recursive
     all_defs::Array{String,1}    #all definitions in file
     seen_items::Array{String,1}  #attributes seen in current definition
     seen_defs::Array{String,1}   #definitions seen so far
+    cached_templates::Dict{String,Cif} #cached template files 
     top_level::Array{String,1}
     cat_info::Array{Tuple{String,String},1}
     this_def::String
@@ -32,8 +33,9 @@ mutable struct OrderCheck <: Visitor_Recursive
     warn::Bool                 #emit warnings
 end
 
-OrderCheck() = OrderCheck(@__DIR__,false)
-OrderCheck(s::String,w::Bool,all_defs::Vector{String}) = OrderCheck(all_defs,[],[],[],[],"","","",false,"",s,w)
+OrderCheck() = OrderCheck(@__DIR__,false, String[])
+OrderCheck(s::String,w::Bool,all_defs::Vector{String}) = OrderCheck(all_defs,[],[],
+                                                                    Dict{String,Cif}(), [],[],"","","",false,"",s,w)
 
 @rule scalar_item(oc::OrderCheck,tree) = begin
     att = traverse_to_value(tree.children[1],firstok=true)
@@ -194,14 +196,7 @@ end
 # Extract necessary information from imported contents
 process_import(oc::OrderCheck,val,tree) = begin
     if get(val,"mode","Contents") == "Full" return end
-    templ_file_name = joinpath(oc.origin_dir, val["file"])
-    templ_file = nothing
-    try
-        templ_file = Cif(templ_file_name)
-    catch
-        @warn "unable to resolve $templ_file_name to a filename"
-        return
-    end
+    templ_file = cif_from_uri(oc, val["file"])
     templates = get_frames(first(templ_file)[end])
     target_block = templates[val["save"]]
     # Now check for items we care about
@@ -209,6 +204,37 @@ process_import(oc::OrderCheck,val,tree) = begin
         if length(v) > 1 continue end   #we only care about single-valued items
         check_attribute(oc,a,v[],tree)
     end
+end
+
+# Utility routine to download template files if necessary
+cif_from_uri(oc::OrderCheck, ss) =  begin
+
+    ss = String(ss)    #Token type caused infinite recursion in URIs
+
+    if haskey(oc.cached_templates, ss)
+        @debug "Using cached file for $ss"
+        return oc.cached_templates[ss]
+    end
+
+    u = URI(ss)
+
+    if u.scheme == ""
+        templ_file_name = joinpath(oc.origin_dir, ss)
+    else
+        templ_file_name = Downloads.download(ss)
+    end
+
+    templ_file = nothing
+    try
+        templ_file = Cif(templ_file_name)
+    catch
+        @warn "unable to resolve $templ_file_name to a filename"
+        return
+    end
+
+    @debug "Caching CIF for $ss"
+    oc.cached_templates[ss] = templ_file
+    return templ_file
 end
 
 # Placed here so it can be called from import routine and
