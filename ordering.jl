@@ -21,6 +21,7 @@ mutable struct OrderCheck <: Visitor_Recursive
     all_defs::Array{String,1}    #all definitions in file
     seen_items::Array{String,1}  #attributes seen in current definition
     seen_defs::Array{String,1}   #definitions seen so far
+    possible_cats::Array{String,1} #categories in our tree
     cached_templates::Dict{String,Cif} #cached template files 
     top_level::Array{String,1}
     cat_info::Array{Tuple{String,String},1}
@@ -34,7 +35,7 @@ mutable struct OrderCheck <: Visitor_Recursive
 end
 
 OrderCheck() = OrderCheck(@__DIR__,false, String[])
-OrderCheck(s::String,w::Bool,all_defs::Vector{String}) = OrderCheck(all_defs,[],[],
+OrderCheck(s::String,w::Bool,all_defs::Vector{String}) = OrderCheck(all_defs,[],[],[],
                                                                     Dict{String,Cif}(), [],[],"","","",false,"",s,w)
 
 @rule scalar_item(oc::OrderCheck,tree) = begin
@@ -87,7 +88,29 @@ end
             print_err(get_line(tree),"Definition for data name $(oc.this_def) is not grouped after parent category $(oc.this_parent)",err_code="4.1.8")
         end
     end
+
+    # Make sure category children of the same category are grouped together
+
+    if length(oc.possible_cats) > 0 && !occursin(".", oc.this_def) #category definition
+        if !(oc.this_parent in oc.possible_cats)
+            print_err(get_line(tree), "Definition for $(oc.this_def) is separated from other members of $(oc.this_parent)", err_code="4.1.8")
+        end
+    end
+
+    # Housekeeping of current category hierarchy
+    
+    if !occursin(".", oc.this_def)  # a category
+        new_end = indexin([oc.this_parent], oc.possible_cats)[]
+        if new_end != nothing
+            oc.possible_cats = oc.possible_cats[1:new_end]
+        end
+        push!(oc.possible_cats, oc.this_def)
+        @debug "New category hierarchy is: " oc.this_def oc.possible_cats
+    end
+    
+    
     # Pretend we never saw any SU values to save order checking later
+
     if oc.this_def != "" && oc.is_su
         pop!(oc.seen_defs)
         pop!(oc.cat_info)
@@ -212,7 +235,7 @@ cif_from_uri(oc::OrderCheck, ss) =  begin
     ss = String(ss)    #Token type caused infinite recursion in URIs
 
     if haskey(oc.cached_templates, ss)
-        @debug "Using cached file for $ss"
+        # @debug "Using cached file for $ss"
         return oc.cached_templates[ss]
     end
 
